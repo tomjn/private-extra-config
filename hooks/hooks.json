@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-push.js"
+    }
+  ]
+}
