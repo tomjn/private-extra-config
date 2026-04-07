@@ -1,5 +1,12 @@
 {
   "name": "private-extra-config",
-  "description": "Private hooks, skills, and configuration",
-  "version": "0.1.0"
+  "description": "Personal Claude Code hooks and configuration: git push safety, Write-rewrite guard for token savings",
+  "version": "0.2.0",
+  "author": {
+    "name": "Sebastiano Merlino"
+  },
+  "license": "MIT",
+  "keywords": ["hooks", "guard", "tokens", "git", "safety", "personal"],
+  "homepage": "https://github.com/etr/private-extra-config",
+  "repository": "https://github.com/etr/private-extra-config"
 }
