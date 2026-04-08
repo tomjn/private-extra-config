@@ -1,7 +1,7 @@
 {
   "name": "private-extra-config",
-  "description": "Personal Claude Code hooks and configuration: git push safety, Write-rewrite guard, output-token protocol injector",
-  "version": "0.3.0",
+  "description": "Personal Claude Code hooks and configuration: git push safety, bash tool-substitute guard, Write-rewrite guard, output-token protocol injector",
+  "version": "0.4.0",
   "author": {
     "name": "Sebastiano Merlino"
   },

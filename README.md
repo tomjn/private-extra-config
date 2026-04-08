@@ -19,6 +19,37 @@ session `! git push <args>` escape.
 **Why:** prevents accidental pushes to wrong branches, force-pushes, and
 pushes to non-default remotes.
 
+### `guard-bash-substitutes` (`PreToolUse` on `Bash`)
+
+Blocks bash invocations that duplicate a dedicated Claude tool, because the
+inlined command text becomes orchestrator output and then sits in cache reads
+on every subsequent turn.
+
+Blocked patterns (only the upstream command of each compound segment is
+checked):
+
+- `grep | rg | egrep | fgrep ...` → use the **Grep** tool
+- `cat | head | tail <file>` → use the **Read** tool
+- `find <path> -name <pattern>` (only when no other predicate like `-mtime`,
+  `-type`, `-size`, `-perm`, `-newer` is present) → use the **Glob** tool
+
+Allowed (intentionally narrow rule set, false positives are worse than false
+negatives):
+
+- Pipe downstream commands like `ps aux | grep claude` — the second command
+  is processing dynamic output, not a file
+- `find` with non-name predicates (`-mtime`, `-type`, `-size`, etc.)
+- `ls`, `sed`, `awk`, `echo`, `printf`, `sort`, `uniq`, `wc` — too many
+  legitimate uses to be worth blocking
+- Multi-line commands and heredocs (fail open — too risky to parse)
+- Anything containing `# bash-guard: allow` (explicit escape hatch)
+- Any parse error or unexpected input
+
+**Why:** measured sessions show ~48k output tokens going to bash `grep`/`rg`,
+~23k to `cat`/`head`/`tail`, and ~41k to `ls`/`find` per day — most of which
+has a zero-cost dedicated-tool equivalent. Blocking with a clear hint is
+cheaper than relying on prompt discipline.
+
 ### `guard-write` (`PreToolUse` on `Write`/`Edit`)
 
 Blocks repeated full-file rewrites via the `Write` tool when an `Edit` would

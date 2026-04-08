@@ -1,8 +1,8 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "private-extra-config",
-  "version": "0.3.0",
-  "description": "Personal Claude Code marketplace (single plugin): private hooks for git push safety, Write-rewrite token guard, and output-token protocol injection",
+  "version": "0.4.0",
+  "description": "Personal Claude Code marketplace (single plugin): private hooks for git push safety, bash tool-substitute guard, Write-rewrite token guard, and output-token protocol injection",
   "owner": {
     "name": "Sebastiano Merlino"
   },
@@ -10,8 +10,8 @@
     {
       "name": "private-extra-config",
       "source": "./",
-      "description": "Personal Claude Code hooks and configuration: git push safety, Write-rewrite guard, output-token protocol injector",
-      "version": "0.3.0",
+      "description": "Personal Claude Code hooks and configuration: git push safety, bash tool-substitute guard, Write-rewrite guard, output-token protocol injector",
+      "version": "0.4.0",
       "author": {
         "name": "Sebastiano Merlino"
       },

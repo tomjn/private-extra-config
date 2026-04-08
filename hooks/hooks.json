@@ -1,5 +1,5 @@
 {
-  "description": "Private hooks: guard against unsafe git push and wasteful Write rewrites, inject output-token protocols at session start",
+  "description": "Private hooks: guard against unsafe git push, bash tool substitutes, and wasteful Write rewrites; inject output-token protocols at session start",
   "hooks": {
     "SessionStart": [
       {
@@ -23,6 +23,16 @@
           }
         ],
         "description": "Block git push with arguments (use bare 'git push' or ! git push <args>)"
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/guard-bash-substitutes.js"
+          }
+        ],
+        "description": "Block bash grep/cat/find that duplicates Grep/Read/Glob tools"
       },
       {
         "matcher": "Write|Edit",
