@@ -1,6 +1,18 @@
 {
-  "description": "Private hooks: guard against unsafe git push and wasteful Write rewrites",
+  "description": "Private hooks: guard against unsafe git push and wasteful Write rewrites, inject output-token protocols at session start",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/inject-output-protocols.js"
+          }
+        ],
+        "description": "Inject output-token protocols Claude should respect for the whole session"
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

@@ -41,6 +41,23 @@ token usage in long Claude Code sessions — a 10k-char Write costs roughly
 
 State is tracked per `session_id` in `$TMPDIR/claude-write-guard/`.
 
+### `inject-output-protocols` (`SessionStart` on `startup|resume|clear|compact`)
+
+Reads `hooks/output-protocols.md` and injects its contents into Claude's
+context once per session via `hookSpecificOutput.additionalContext`, wrapped in
+an `<output-token-protocols>` tag. Claude sees the text as a system reminder
+and is instructed to respect the protocols unless the user explicitly
+overrides (`"full file"`, `"verbose"`, `"explain fully"`, schema supplied).
+
+**Why:** the protocols codify diff-first editing, skeleton/AST output, typed
+pseudocode for plans, telegram-style prose, and flat short-key JSON — all
+aimed at cutting output-token usage with no per-turn overhead (SessionStart
+fires once, not per prompt).
+
+**Editing the protocols:** just edit `hooks/output-protocols.md`. No code
+change needed; the hook reads the file at session start. Fails open on any
+read error.
+
 ## Installation
 
 ```
