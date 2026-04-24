@@ -35,7 +35,7 @@
         "description": "Block bash grep/cat/find that duplicates Grep/Read/Glob tools"
       },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",

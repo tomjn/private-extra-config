@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * PreToolUse hook for Write and Edit.
+ * PreToolUse hook for Write, Edit, and NotebookEdit.
  *
  * Purpose: prevent output-token waste from full-file rewrites via the Write tool
  * when an Edit would do.
  *
  * Rule:
  *   Block a Write when ALL of the following hold:
- *     1. The target file has already been touched (Write or Edit) earlier in this session.
+ *     1. The target file has already been touched (Write/Edit/NotebookEdit)
+ *        earlier in this session.
  *     2. The content being written is larger than THRESHOLD_CHARS.
  *     3. The exact same (file_path, content) Write was not previously blocked
  *        in this session (kill-switch: a second identical attempt goes through).
@@ -15,9 +16,11 @@
  *   Otherwise: allow. In particular, the *first* Write of a file in a session is
  *   always allowed — the rule only kicks in on repeat full rewrites.
  *
- *   For Edit calls: never block; just record the touch so subsequent Writes see it.
+ *   For Edit/NotebookEdit calls: never block; just record the touch so subsequent
+ *   Writes see it. (NotebookEdit is inherently per-cell, not full-file.)
  *
  * State is kept per session_id in $TMPDIR/claude-write-guard/<session_id>.json.
+ * Old state files are GC'd probabilistically (see STATE_TTL_MS / GC_PROBABILITY).
  * Any error in the hook fails open (allows the tool).
  */
 
@@ -28,6 +31,8 @@ const crypto = require('crypto');
 const THRESHOLD_CHARS = 3000;
 const STATE_DIR = path.join(process.env.TMPDIR || '/tmp', 'claude-write-guard');
 const MAX_BLOCKED_HASHES = 200;
+const STATE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const GC_PROBABILITY = 0.05; // ~1 in 20 invocations runs cleanup
 
 function allow() {
   // Exit 0 with no stdout = allow
@@ -64,6 +69,27 @@ function shortHash(s) {
   return crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
 }
 
+function gcOldState() {
+  // Best-effort: remove session state files older than STATE_TTL_MS. Swallow
+  // all errors — this is housekeeping, not correctness.
+  try {
+    const now = Date.now();
+    const entries = fs.readdirSync(STATE_DIR);
+    for (const name of entries) {
+      if (!name.endsWith('.json')) continue;
+      const file = path.join(STATE_DIR, name);
+      try {
+        const st = fs.statSync(file);
+        if (now - st.mtimeMs > STATE_TTL_MS) fs.unlinkSync(file);
+      } catch {
+        // per-file errors ignored
+      }
+    }
+  } catch {
+    // dir doesn't exist yet, or unreadable — fine
+  }
+}
+
 function main() {
   let input;
   try {
@@ -72,19 +98,24 @@ function main() {
     return allow();
   }
 
+  if (Math.random() < GC_PROBABILITY) gcOldState();
+
   const toolName = input.tool_name || '';
   const toolInput = input.tool_input || {};
   const sessionId = input.session_id || 'no-session';
-  const filePath = toolInput.file_path;
+  // Write/Edit use file_path; NotebookEdit uses notebook_path.
+  const filePath = toolInput.file_path || toolInput.notebook_path;
 
   if (!filePath) return allow();
-  if (toolName !== 'Write' && toolName !== 'Edit') return allow();
+  if (toolName !== 'Write' && toolName !== 'Edit' && toolName !== 'NotebookEdit') return allow();
 
   const state = loadState(sessionId);
   const prevTouches = state.touched[filePath] || 0;
 
-  // Edit: never blocks, always records.
-  if (toolName === 'Edit') {
+  // Edit and NotebookEdit: never block, always record. NotebookEdit is
+  // inherently per-cell, not a full-file rewrite, so the output-token waste
+  // concern doesn't apply.
+  if (toolName === 'Edit' || toolName === 'NotebookEdit') {
     state.touched[filePath] = prevTouches + 1;
     saveState(sessionId, state);
     return allow();
