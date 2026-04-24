@@ -28,9 +28,10 @@ session `! git push <args>` escape.
 
 Common bypass forms are also blocked: absolute paths (`/usr/bin/git push -f`),
 quoted command words (`"git" push -f`), backslash-escape (`\git push -f`),
-launcher wrappers (`command`/`exec`/`builtin`/`env git push -f`), and
-chained/piped forms (`foo && git push -f`, `git push -f | tee log`). Parsing
-fails open on multi-line commands and heredocs.
+launcher wrappers (`command`/`exec`/`builtin`/`env git push -f`), the
+[rtk](https://github.com/rtk-ai/rtk) token-saver proxy (`rtk git push -f`),
+and chained/piped forms (`foo && git push -f`, `git push -f | tee log`).
+Parsing fails open on multi-line commands and heredocs.
 
 **Escape hatch:** append `# git-push-guard: allow` to the command for a
 one-off exception the rule doesn't cover.
@@ -55,6 +56,11 @@ checked):
 - `cat | head | tail <file>` → use the **Read** tool
 - `find <path> -name <pattern>` (only when no other predicate like `-mtime`,
   `-type`, `-size`, `-perm`, `-newer` is present) → use the **Glob** tool
+
+Common bypass forms are blocked in the same way as `guard-git-push`, including
+absolute paths, quoted forms, backslash-escape, launcher wrappers
+(`command`/`exec`/`builtin`/`env`), and the [rtk](https://github.com/rtk-ai/rtk)
+token-saver proxy (`rtk grep foo` unwraps to `grep foo` and is blocked).
 
 Allowed (intentionally narrow rule set, false positives are worse than false
 negatives):
@@ -144,9 +150,16 @@ and won't actually load until properly installed via the marketplace.
 
 Both bash guards (`guard-git-push`, `guard-bash-substitutes`) share
 `hooks/lib/bash-parse.js`, which handles tokenization, launcher-wrapper
-unwrapping (`command`/`exec`/`builtin`/`env`), env-assignment stripping,
+unwrapping (`command`/`exec`/`builtin`/`env`/`rtk`), env-assignment stripping,
 quote/backslash/path normalization, and pipeline segmentation. Keeping this
 in one place means bypass closures stay consistent across guards.
+
+`rtk` is treated as a launcher wrapper because
+[rtk](https://github.com/rtk-ai/rtk) proxies the command after it — `rtk grep
+foo` runs grep with token-saver output filtering, so it is semantically
+equivalent to `grep foo` for bypass-closure purposes. `rtk`'s own meta
+subcommands (`rtk gain`, `rtk discover`, `rtk proxy …`) unwrap to `gain` /
+`discover` / `proxy …` and are not blocked.
 
 ### Testing the Write guard
 

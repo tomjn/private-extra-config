@@ -1,7 +1,7 @@
 {
   "name": "private-extra-config",
   "description": "Personal Claude Code hooks and configuration: git push safety, bash tool-substitute guard, Write-rewrite guard, output-token protocol injector",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "Tom J Nowell"
   },

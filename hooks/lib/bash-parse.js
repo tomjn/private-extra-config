@@ -17,9 +17,12 @@
  */
 
 // Transparent command-launcher wrappers: `command`, `exec`, `builtin`, `env`
-// all replace themselves with their first non-flag arg. Unwrapping these
-// closes common bypasses like `command grep`, `\grep`, `env FOO=1 grep`.
-const LAUNCHER = /^(command|exec|builtin|env)$/;
+// all replace themselves with their first non-flag arg. `rtk` is included
+// because it proxies the command after it (`rtk grep foo` runs grep through
+// the rtk token-saver; semantically equivalent to `grep foo` for our
+// bypass-closure purposes). Unwrapping these closes common bypasses like
+// `command grep`, `\grep`, `env FOO=1 grep`, `rtk grep`.
+const LAUNCHER = /^(command|exec|builtin|env|rtk)$/;
 const ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/;
 
 function normalize(token) {
