@@ -28,6 +28,12 @@
  */
 
 const fs = require('fs');
+const {
+  firstCommandWord,
+  splitTopLevel,
+  upstreamOfPipe,
+  isMultilineOrHeredoc,
+} = require('./lib/bash-parse');
 
 const CONTENT_SEARCH = /^(grep|rg|egrep|fgrep)$/;
 const FILE_READ = /^(cat|head|tail)$/;
@@ -43,20 +49,10 @@ function block(reason) {
   process.exit(0);
 }
 
-function firstCommandWord(segment) {
-  // Skip leading env assignments (FOO=bar cmd ...) and extract the command.
-  const tokens = segment.trim().split(/\s+/);
-  let i = 0;
-  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
-  if (i >= tokens.length) return '';
-  // Strip any path prefix (/usr/bin/grep -> grep).
-  return tokens[i].split('/').pop();
-}
-
 function checkSegment(segment) {
   // For a pipeline, only check the UPSTREAM command.
   // `cat a | grep b` -> check `cat a`, not the downstream `grep b`.
-  const firstPipePart = segment.split(/\|(?!\|)/)[0].trim();
+  const firstPipePart = upstreamOfPipe(segment);
   if (!firstPipePart) return null;
 
   const word = firstCommandWord(firstPipePart);
@@ -99,17 +95,12 @@ function main() {
 
   // Fail open on multi-line or heredoc commands — naive splitting would
   // misattribute and too-eagerly block.
-  if (cmd.includes('\n') || cmd.includes('<<')) return allow();
+  if (isMultilineOrHeredoc(cmd)) return allow();
 
   // Explicit escape hatch.
   if (/#\s*bash-guard:\s*allow\b/.test(cmd)) return allow();
 
-  // Split on top-level compound operators. Naive: does not track quoting, so
-  // a quoted ';' or '&&' inside a string argument will over-split. That is
-  // acceptable because we only flag matches, and any over-split segment that
-  // happens to start with a forbidden word was probably legitimate bash. In
-  // practice the wins on grep/cat/find dominate the rare false positive.
-  const segments = cmd.split(/(?:&&|\|\||;)/).map((s) => s.trim()).filter(Boolean);
+  const segments = splitTopLevel(cmd);
 
   for (const seg of segments) {
     const violation = checkSegment(seg);
@@ -117,6 +108,9 @@ function main() {
       return block(
         `guard-bash-substitutes: bash '${violation.word}' is blocked. ${violation.hint} ` +
           `(Use the ${violation.tool} tool instead.) ` +
+          `All common workarounds are also blocked: absolute paths (/usr/bin/${violation.word}), ` +
+          `quoted ("${violation.word}"), backslash-escape (\\${violation.word}), and launcher wrappers ` +
+          `(command/exec/builtin/env ${violation.word}). Do not retry variants — switch to the ${violation.tool} tool. ` +
           `If you genuinely need the shell version, append "# bash-guard: allow" to the command.`,
       );
     }

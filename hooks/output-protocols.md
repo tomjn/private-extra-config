@@ -11,3 +11,5 @@ Respect these unless the user explicitly overrides (e.g. "full file", "verbose",
 4. **Telegram-style prose.** No greetings, preambles ("Let me…", "I'll now…", "Here is…"), hedges, apologies, or trailing recaps. Short content words; punctuation only where essential to meaning. Never re-describe what a tool call just did — its output is already visible.
 
 5. **Flat, short-key JSON.** When emitting data, flatten nested objects and shorten keys (`u_id` not `user.id`). Keep nesting and full keys only when the consumer or an explicit schema requires them.
+
+6. **Bash tool substitutes are guarded.** The `guard-bash-substitutes` PreToolUse hook blocks `grep`/`rg`/`egrep`/`fgrep`, `cat`/`head`/`tail`, and `find -name` (when no other predicate is present). All common bypass forms are also blocked: absolute paths (`/usr/bin/grep`, `/bin/cat`), quoted command words (`"/usr/bin/grep"`), backslash-escape (`\grep`), and launcher wrappers (`command grep`, `exec grep`, `builtin grep`, `env grep`, `env FOO=1 grep`). When blocked, switch to `Grep` / `Read` / `Glob` — do not retry variants. Escape hatch for genuinely-needed shell form: append `# bash-guard: allow` to the command.
