@@ -1,12 +1,12 @@
 {
   "name": "private-extra-config",
   "description": "Personal Claude Code hooks and configuration: git push safety, bash tool-substitute guard, Write-rewrite guard, output-token protocol injector",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
-    "name": "Sebastiano Merlino"
+    "name": "Tom J Nowell"
   },
   "license": "MIT",
   "keywords": ["hooks", "guard", "tokens", "git", "safety", "personal"],
-  "homepage": "https://github.com/etr/private-extra-config",
-  "repository": "https://github.com/etr/private-extra-config"
+  "homepage": "https://github.com/tomjn/private-extra-config",
+  "repository": "https://github.com/tomjn/private-extra-config"
 }
