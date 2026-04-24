@@ -15,6 +15,12 @@
       "author": {
         "name": "Tom J Nowell"
       },
+      "contributors": [
+        {
+          "name": "Sebastiano Merlino",
+          "url": "https://github.com/etr/private-extra-config"
+        }
+      ],
       "license": "MIT",
       "keywords": ["hooks", "guard", "tokens", "git", "safety", "personal"],
       "homepage": "https://github.com/tomjn/private-extra-config",

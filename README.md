@@ -7,6 +7,16 @@ This repo is both a Claude Code **plugin** and a single-entry **marketplace** �
 the same pattern used by `minion-groundwork`. This lets it install via
 `/plugin marketplace add` without needing to curate a separate marketplace repo.
 
+## Attribution
+
+This is a fork of [etr/private-extra-config](https://github.com/etr/private-extra-config)
+by **Sebastiano Merlino** — all four hooks (`guard-git-push`,
+`guard-bash-substitutes`, `guard-write`, `inject-output-protocols`) and the
+plugin-as-marketplace structure are his original work. This fork adds hardening
+against common bypass variants, a shared bash-parse library, `NotebookEdit`
+coverage and state-file GC in `guard-write`, and is maintained separately
+because the upstream repo has been quiet. Original MIT license preserved.
+
 ## Hooks
 
 ### `guard-git-push` (`PreToolUse` on `Bash`)
@@ -15,6 +25,19 @@ Blocks `git push` with arguments (e.g. `git push --force`, `git push origin
 feature-branch`) while allowing the bare `git push` and the explicit safe
 variant `git push origin main`. Anything else must be run manually via the
 session `! git push <args>` escape.
+
+Common bypass forms are also blocked: absolute paths (`/usr/bin/git push -f`),
+quoted command words (`"git" push -f`), backslash-escape (`\git push -f`),
+launcher wrappers (`command`/`exec`/`builtin`/`env git push -f`), and
+chained/piped forms (`foo && git push -f`, `git push -f | tee log`). Parsing
+fails open on multi-line commands and heredocs.
+
+**Escape hatch:** append `# git-push-guard: allow` to the command for a
+one-off exception the rule doesn't cover.
+
+**Known limitation:** `sudo`/`nice`/`time` are not unwrapped (their flag
+semantics would create false positives; `sudo` also prompts non-interactively
+so it isn't a practical bypass here).
 
 **Why:** prevents accidental pushes to wrong branches, force-pushes, and
 pushes to non-default remotes.
@@ -50,7 +73,7 @@ negatives):
 has a zero-cost dedicated-tool equivalent. Blocking with a clear hint is
 cheaper than relying on prompt discipline.
 
-### `guard-write` (`PreToolUse` on `Write`/`Edit`)
+### `guard-write` (`PreToolUse` on `Write`/`Edit`/`NotebookEdit`)
 
 Blocks repeated full-file rewrites via the `Write` tool when an `Edit` would
 be cheaper in output tokens. Rules:
@@ -58,9 +81,10 @@ be cheaper in output tokens. Rules:
 1. First `Write` to any given file in a session is **always allowed**.
 2. A subsequent `Write` to the same file with content larger than 3000
    characters is **blocked** — the agent is told to use `Edit` instead.
-3. `Edit` calls are never blocked, and they count as "touching" the file for
-   rule 2 above. So after an Edit, a full Write rewrite of the same file is
-   blocked.
+3. `Edit` and `NotebookEdit` calls are never blocked, and they count as
+   "touching" the file for rule 2 above. So after an Edit, a full Write
+   rewrite of the same file is blocked. `NotebookEdit` is inherently per-cell,
+   so the output-token concern doesn't apply to it directly.
 4. **Kill switch:** if the agent retries the identical Write (same file, same
    content) after a block, the second attempt goes through. A third identical
    attempt blocks again (the switch resets after each use).
@@ -70,7 +94,9 @@ be cheaper in output tokens. Rules:
 token usage in long Claude Code sessions — a 10k-char Write costs roughly
 2.5k output tokens. Surgical Edits are 10–100× cheaper.
 
-State is tracked per `session_id` in `$TMPDIR/claude-write-guard/`.
+State is tracked per `session_id` in `$TMPDIR/claude-write-guard/`. Session
+state files are probabilistically garbage-collected after 7 days (~1 in 20
+invocations runs the cleanup).
 
 ### `inject-output-protocols` (`SessionStart` on `startup|resume|clear|compact`)
 
@@ -92,7 +118,7 @@ read error.
 ## Installation
 
 ```
-/plugin marketplace add etr/private-extra-config
+/plugin marketplace add tomjn/private-extra-config
 /plugin install private-extra-config@private-extra-config
 ```
 
@@ -101,6 +127,9 @@ with GitHub (e.g. SSH keys loaded or `gh auth login` completed).
 
 After install, restart the session or toggle the plugin off/on via `/plugin` so
 the hooks are loaded.
+
+> Installing the upstream (`etr/private-extra-config`) instead will give you
+> the original hooks without the hardening added in this fork.
 
 ## Development
 
@@ -111,10 +140,18 @@ can also keep a symlink at `~/.claude/plugins/private-extra-config` pointing
 at this checkout — but in that case the plugin won't be in `enabledPlugins`
 and won't actually load until properly installed via the marketplace.
 
+### Shared parsing library
+
+Both bash guards (`guard-git-push`, `guard-bash-substitutes`) share
+`hooks/lib/bash-parse.js`, which handles tokenization, launcher-wrapper
+unwrapping (`command`/`exec`/`builtin`/`env`), env-assignment stripping,
+quote/backslash/path normalization, and pipeline segmentation. Keeping this
+in one place means bypass closures stay consistent across guards.
+
 ### Testing the Write guard
 
 ```
-bash -c 'cd /tmp && node /home/etr/progs/private-extra-config/hooks/guard-write.js <<EOF
+bash -c 'node hooks/guard-write.js <<EOF
 {"session_id":"test","tool_name":"Write","tool_input":{"file_path":"/tmp/x.md","content":"hello"}}
 EOF'
 ```
