@@ -7,18 +7,28 @@
  * `git push origin main`.
  *
  * Bypass closure (matches guard-bash-substitutes semantics):
- *   - Path prefix:       `/usr/bin/git push -f`       → blocked
- *   - Quotes:            `"git" push -f`              → blocked
- *   - Backslash-escape:  `\git push -f`               → blocked
- *   - Launcher wrappers: `command|exec|builtin|env git push -f` → blocked
- *   - Pipelines:         `something && git push -f`   → blocked
- *   - Pipe upstream:     `git push -f | tee log`      → blocked
+ *   - Path prefix:       `/usr/bin/git push -f`         → blocked
+ *   - Quotes:            `"git" push -f`                → blocked
+ *   - Backslash-escape:  `\git push -f`                 → blocked
+ *   - Launcher wrappers: `command|exec|builtin|env|eval git push -f` → blocked
+ *   - rtk wrappers:      `rtk git push -f`              → blocked
+ *   - rtk passthrough:   `rtk proxy|run|err|test|summary git push -f` → blocked
+ *   - rtk shell:         `rtk bash -c "git push -f"`    → blocked
+ *   - Shell runners:     `bash -c "..."` / `sh -c "..."` → blocked
+ *   - Pipelines:         `something && git push -f`     → blocked
+ *   - Pipe upstream:     `git push -f | tee log`        → blocked
  *
- * NOT closed (known limitation, matches guard-bash-substitutes):
+ * NOT closed (known limitations):
  *   - `sudo git push -f`, `nice git push -f`, `time git push -f` — these
  *     wrappers have flag/arg semantics that would create false positives if
  *     unwrapped naively. sudo would also prompt for a password
  *     non-interactively, so it is not a practical bypass in this context.
+ *   - `bash -c 'git push -f && echo done'` — payloads with `;`/`&&`/`||`
+ *     get split before unwrapping, so the `git push` may end up in a
+ *     separate segment. In practice the inner segment usually still triggers
+ *     the rule (`git push -f && echo done` splits to `git push -f`), but
+ *     contrived payloads can evade. Quote-aware shell parsing is out of scope.
+ *   - `bash -lc "..."` / `sh +c "..."` and other non-`-c` flag forms.
  *
  * Escape hatch:
  *   - `# git-push-guard: allow` appended to the command force-allows it.
@@ -80,7 +90,8 @@ function main() {
           'Allowed forms: bare "git push" or exactly "git push origin main". ' +
           'All common bypass forms are also blocked: absolute paths (/usr/bin/git), ' +
           'quoted ("git"), backslash-escape (\\git), launcher wrappers ' +
-          '(command/exec/builtin/env git), and chained/piped forms (foo && git push -f). ' +
+          '(command/exec/builtin/env/eval git), rtk wrappers (rtk git, rtk proxy|run|err|test|summary git, rtk bash -c "git ..."), ' +
+          'shell runners (bash -c / sh -c "git ..."), and chained/piped forms (foo && git push -f). ' +
           'Do not retry variants. Run manually with "! git push <args>", ' +
           'or append "# git-push-guard: allow" to the command if you need a one-off exception.',
       );

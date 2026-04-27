@@ -35,6 +35,16 @@
         "description": "Block bash grep/cat/find that duplicates Grep/Read/Glob tools"
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/normalize-bash.js"
+          }
+        ],
+        "description": "Normalize Bash: rewrite abs-path/quoted command words; auto-allow when every compound/pipe segment matches an allowlisted rule"
+      },
+      {
         "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
           {

@@ -28,17 +28,23 @@ session `! git push <args>` escape.
 
 Common bypass forms are also blocked: absolute paths (`/usr/bin/git push -f`),
 quoted command words (`"git" push -f`), backslash-escape (`\git push -f`),
-launcher wrappers (`command`/`exec`/`builtin`/`env git push -f`), the
-[rtk](https://github.com/rtk-ai/rtk) token-saver proxy (`rtk git push -f`),
+launcher wrappers (`command`/`exec`/`builtin`/`env`/`eval git push -f`), the
+[rtk](https://github.com/rtk-ai/rtk) token-saver proxy in all its forms (`rtk
+git push -f`, `rtk proxy|run|err|test|summary git push -f`, `rtk bash -c "git
+push -f"`), shell-runner payloads (`bash -c "git push -f"`, `sh -c "..."`),
 and chained/piped forms (`foo && git push -f`, `git push -f | tee log`).
 Parsing fails open on multi-line commands and heredocs.
 
 **Escape hatch:** append `# git-push-guard: allow` to the command for a
 one-off exception the rule doesn't cover.
 
-**Known limitation:** `sudo`/`nice`/`time` are not unwrapped (their flag
+**Known limitations:** `sudo`/`nice`/`time` are not unwrapped (their flag
 semantics would create false positives; `sudo` also prompts non-interactively
-so it isn't a practical bypass here).
+so it isn't a practical bypass here). Shell-runner payloads (`bash -c '...'`,
+`rtk run '...'`) are tokenized naïvely — payloads with `;`/`&&`/`||` may
+over-split, though the inner forbidden command typically still surfaces in
+one of the resulting segments. `bash -lc "..."` and other non-`-c` flag
+forms are not recognized as runners.
 
 **Why:** prevents accidental pushes to wrong branches, force-pushes, and
 pushes to non-default remotes.
@@ -59,8 +65,10 @@ checked):
 
 Common bypass forms are blocked in the same way as `guard-git-push`, including
 absolute paths, quoted forms, backslash-escape, launcher wrappers
-(`command`/`exec`/`builtin`/`env`), and the [rtk](https://github.com/rtk-ai/rtk)
-token-saver proxy (`rtk grep foo` unwraps to `grep foo` and is blocked).
+(`command`/`exec`/`builtin`/`env`/`eval`), the [rtk](https://github.com/rtk-ai/rtk)
+token-saver proxy (`rtk grep foo` and the passthrough subcommands `rtk
+proxy|run|err|test|summary grep foo`), and shell-runner payloads (`bash -c
+"grep foo"`, `sh -c "..."`, `rtk bash -c "..."`).
 
 Allowed (intentionally narrow rule set, false positives are worse than false
 negatives):
@@ -157,16 +165,30 @@ in one place means bypass closures stay consistent across guards.
 `rtk` is treated as a launcher wrapper because
 [rtk](https://github.com/rtk-ai/rtk) proxies the command after it — `rtk grep
 foo` runs grep with token-saver output filtering, so it is semantically
-equivalent to `grep foo` for bypass-closure purposes. `rtk`'s own meta
-subcommands (`rtk gain`, `rtk discover`, `rtk proxy …`) unwrap to `gain` /
-`discover` / `proxy …` and are not blocked.
+equivalent to `grep foo` for bypass-closure purposes. `rtk`'s passthrough
+subcommands (`rtk proxy`, `rtk run`, `rtk err`, `rtk test`, `rtk summary`)
+take an arbitrary command and run it, so the parser strips both the `rtk`
+and the subcommand before evaluating. `rtk bash -c …` / `rtk sh -c …` fall
+through to the system shell binary, so they are recognized and unwrapped
+the same way `bash -c …` is. Standalone meta subcommands (`rtk gain`, `rtk
+discover`, etc.) leave the meta name as the command word and aren't blocked.
 
-### Testing the Write guard
+### Tests
 
 ```
-bash -c 'node hooks/guard-write.js <<EOF
+node test/guards.test.js
+```
+
+The suite covers every closure plus a sample of legitimate forms that must
+continue to pass. Zero dependencies — just `node`. Add new cases to
+`test/guards.test.js` whenever you close another bypass.
+
+For ad-hoc Write guard testing:
+
+```
+node hooks/guard-write.js <<EOF
 {"session_id":"test","tool_name":"Write","tool_input":{"file_path":"/tmp/x.md","content":"hello"}}
-EOF'
+EOF
 ```
 
 Empty output = allow. JSON with `"decision":"block"` = block.

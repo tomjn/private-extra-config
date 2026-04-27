@@ -109,8 +109,11 @@ function main() {
         `guard-bash-substitutes: bash '${violation.word}' is blocked. ${violation.hint} ` +
           `(Use the ${violation.tool} tool instead.) ` +
           `All common workarounds are also blocked: absolute paths (/usr/bin/${violation.word}), ` +
-          `quoted ("${violation.word}"), backslash-escape (\\${violation.word}), and launcher wrappers ` +
-          `(command/exec/builtin/env ${violation.word}). Do not retry variants — switch to the ${violation.tool} tool. ` +
+          `quoted ("${violation.word}"), backslash-escape (\\${violation.word}), launcher wrappers ` +
+          `(command/exec/builtin/env/eval ${violation.word}), rtk wrappers ` +
+          `(rtk ${violation.word}, rtk proxy|run|err|test|summary ${violation.word}, rtk bash -c "${violation.word} ..."), ` +
+          `and shell runners (bash -c / sh -c "${violation.word} ..."). ` +
+          `Do not retry variants — switch to the ${violation.tool} tool. ` +
           `If you genuinely need the shell version, append "# bash-guard: allow" to the command.`,
       );
     }
