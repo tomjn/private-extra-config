@@ -19,11 +19,27 @@ const path = require('path');
 const HOOKS = path.resolve(__dirname, '..', 'hooks');
 const GUARD_PUSH = path.join(HOOKS, 'guard-git-push.js');
 const GUARD_BASH = path.join(HOOKS, 'guard-bash-substitutes.js');
+const NORMALIZE = path.join(HOOKS, 'normalize-bash.js');
 
 function run(hook, command) {
   const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
   const r = spawnSync('node', [hook], { input, encoding: 'utf8' });
   return { stdout: r.stdout || '', status: r.status };
+}
+
+function parseNormalize(stdout) {
+  // normalize-bash emits {hookSpecificOutput: {...}} or nothing.
+  if (!stdout.trim()) return { rewritten: null, allowed: false };
+  try {
+    const obj = JSON.parse(stdout);
+    const out = obj.hookSpecificOutput || {};
+    return {
+      rewritten: out.updatedInput ? out.updatedInput.command : null,
+      allowed: out.permissionDecision === 'allow',
+    };
+  } catch {
+    return { rewritten: null, allowed: false };
+  }
 }
 
 // [hook, command, expected: 'block' | 'allow', label]
@@ -98,5 +114,40 @@ for (const [hook, cmd, expected, label] of cases) {
     if (stdout) console.log(`     stdout: ${stdout.slice(0, 240)}`);
   }
 }
+
+// ─── normalize-bash: rewrites + auto-allow behavior ──────────────────────
+// [command, expectedRewrite|null, label]
+// expectedRewrite === null means "no rewrite expected" (output may be empty
+// or contain only permissionDecision). The escape-hatch case is the
+// regression we just fixed: it MUST rewrite even with the comment present.
+const normalizeCases = [
+  ['/opt/homebrew/bin/rg foo', 'rg foo', 'abs-path rg rewritten'],
+  ['"grep" foo bar', 'grep foo bar', 'quoted cmd-word rewritten'],
+  ['/bin/ls -la | "head" -n 3', 'ls -la | head -n 3', 'compound rewrite'],
+  [
+    '/opt/homebrew/bin/rg foo # bash-guard: allow',
+    'rg foo # bash-guard: allow',
+    'escape hatch does NOT skip rewrite (regression fix)',
+  ],
+  ['ls -la', null, 'no rewrite needed'],
+  ['echo hello', null, 'plain command unchanged'],
+];
+
+for (const [cmd, want, label] of normalizeCases) {
+  const { stdout } = run(NORMALIZE, cmd);
+  const { rewritten } = parseNormalize(stdout);
+  const got = rewritten;
+  const ok = want === null ? got === null : got === want;
+  if (ok) {
+    pass++;
+    console.log(`OK   [normalize-bash] rewrite ${label}`);
+  } else {
+    fail++;
+    console.log(`FAIL [normalize-bash] expected=${JSON.stringify(want)} got=${JSON.stringify(got)}: ${label}`);
+    console.log(`     cmd: ${cmd}`);
+    if (stdout) console.log(`     stdout: ${stdout.slice(0, 240)}`);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -36,8 +36,12 @@
  *   - Args that themselves contain abs paths or quotes: only the command word
  *     is normalized — `cmd "/bin/ls is great"` keeps the literal arg.
  *
- * Escape hatch: append `# bash-guard: allow` to the command (consistent with
- * the sibling guards) and the hook exits silently.
+ * No escape hatch: unlike the sibling block-guards, this hook only rewrites
+ * the command word and only auto-allows when the user's own allowlist already
+ * matches the rewritten form — so there is nothing to override. Skipping
+ * normalization when `# bash-guard: allow` is present caused absolute-path
+ * commands to reach the permission system unrewritten and miss allowlist rules
+ * keyed on the bare command name.
  *
  * Hook protocol: PreToolUse JSON on stdin; emit
  *   {hookSpecificOutput: {hookEventName: 'PreToolUse',
@@ -125,7 +129,6 @@ function main() {
   const cmd = (input && input.tool_input && input.tool_input.command) || '';
   if (!cmd.trim()) process.exit(0);
   if (isMultilineOrHeredoc(cmd)) process.exit(0);
-  if (/#\s*bash-guard:\s*allow\b/.test(cmd)) process.exit(0);
 
   const parts = cmd.split(SEP_RE);
   const effectives = [];
