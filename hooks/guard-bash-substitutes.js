@@ -7,7 +7,6 @@
  * becomes cache-read on every subsequent turn).
  *
  * Rules (narrow on purpose — false positives are worse than false negatives):
- *   - `grep|rg|egrep|fgrep ...`    → Grep tool
  *   - `cat|head|tail <file>`       → Read tool
  *   - `find <path> -name <pat>`    → Glob tool (only when no other predicate
  *     like -mtime/-type/-size/-perm is present)
@@ -35,7 +34,6 @@ const {
   isMultilineOrHeredoc,
 } = require('./lib/bash-parse');
 
-const CONTENT_SEARCH = /^(grep|rg|egrep|fgrep)$/;
 const FILE_READ = /^(cat|head|tail)$/;
 const FIND_SIMPLE_NAME = /\s-name\s+/;
 const FIND_OTHER_PREDICATE = /\s-(mtime|ctime|atime|mmin|amin|cmin|size|perm|type|newer|regex|iregex|prune|path|ipath|empty|user|group|uid|gid)\b/;
@@ -58,13 +56,6 @@ function checkSegment(segment) {
   const word = firstCommandWord(firstPipePart);
   if (!word) return null;
 
-  if (CONTENT_SEARCH.test(word)) {
-    return {
-      word,
-      tool: 'Grep',
-      hint: 'Use the Grep tool (built on ripgrep) for content search — it has the correct permissions and better defaults.',
-    };
-  }
   if (FILE_READ.test(word)) {
     return {
       word,

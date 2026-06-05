@@ -80,15 +80,20 @@ const cases = [
   [GUARD_PUSH, 'echo "git push -f"', 'allow', 'string content not command'],
 
   // ─── guard-bash-substitutes: closures ─────────────────────────────────
-  [GUARD_BASH, 'rtk proxy grep foo', 'block', 'rtk proxy grep'],
-  [GUARD_BASH, 'rtk run grep foo', 'block', 'rtk run grep'],
-  [GUARD_BASH, 'rtk bash -c "grep foo bar.txt"', 'block', 'rtk bash -c grep'],
-  [GUARD_BASH, 'bash -c "grep foo bar.txt"', 'block', 'bash -c grep'],
+  // (cat is the representative blocked substitute; grep family is no longer blocked)
+  [GUARD_BASH, 'rtk proxy cat foo', 'block', 'rtk proxy cat'],
+  [GUARD_BASH, 'rtk run cat foo', 'block', 'rtk run cat'],
+  [GUARD_BASH, 'rtk bash -c "cat bar.txt"', 'block', 'rtk bash -c cat'],
+  [GUARD_BASH, 'bash -c "cat bar.txt"', 'block', 'bash -c cat'],
   [GUARD_BASH, 'sh -c "cat /etc/hosts"', 'block', 'sh -c cat'],
-  [GUARD_BASH, 'eval "grep foo bar.txt"', 'block', 'eval grep'],
+  [GUARD_BASH, 'eval "cat bar.txt"', 'block', 'eval cat'],
   [GUARD_BASH, 'rtk err cat /etc/hosts', 'block', 'rtk err cat'],
 
   // ─── guard-bash-substitutes: legitimate forms ─────────────────────────
+  [GUARD_BASH, 'grep foo bar.txt', 'allow', 'grep no longer blocked'],
+  [GUARD_BASH, 'rg foo', 'allow', 'rg no longer blocked'],
+  [GUARD_BASH, 'egrep foo bar.txt', 'allow', 'egrep no longer blocked'],
+  [GUARD_BASH, 'fgrep foo bar.txt', 'allow', 'fgrep no longer blocked'],
   [GUARD_BASH, 'ps aux | grep claude', 'allow', 'pipe downstream grep'],
   [GUARD_BASH, 'ls -la', 'allow', 'ls'],
   [GUARD_BASH, 'echo hello', 'allow', 'echo'],

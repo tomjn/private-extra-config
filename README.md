@@ -58,7 +58,6 @@ on every subsequent turn.
 Blocked patterns (only the upstream command of each compound segment is
 checked):
 
-- `grep | rg | egrep | fgrep ...` → use the **Grep** tool
 - `cat | head | tail <file>` → use the **Read** tool
 - `find <path> -name <pattern>` (only when no other predicate like `-mtime`,
   `-type`, `-size`, `-perm`, `-newer` is present) → use the **Glob** tool
@@ -66,14 +65,16 @@ checked):
 Common bypass forms are blocked in the same way as `guard-git-push`, including
 absolute paths, quoted forms, backslash-escape, launcher wrappers
 (`command`/`exec`/`builtin`/`env`/`eval`), the [rtk](https://github.com/rtk-ai/rtk)
-token-saver proxy (`rtk grep foo` and the passthrough subcommands `rtk
-proxy|run|err|test|summary grep foo`), and shell-runner payloads (`bash -c
-"grep foo"`, `sh -c "..."`, `rtk bash -c "..."`).
+token-saver proxy (`rtk cat foo` and the passthrough subcommands `rtk
+proxy|run|err|test|summary cat foo`), and shell-runner payloads (`bash -c
+"cat foo"`, `sh -c "..."`, `rtk bash -c "..."`).
 
 Allowed (intentionally narrow rule set, false positives are worse than false
 negatives):
 
-- Pipe downstream commands like `ps aux | grep claude` — the second command
+- `grep`/`rg`/`egrep`/`fgrep` content search — the dedicated `Grep` tool is
+  not always available, so bash content search stays the reliable path
+- Pipe downstream commands like `ls -la | head -5` — the second command
   is processing dynamic output, not a file
 - `find` with non-name predicates (`-mtime`, `-type`, `-size`, etc.)
 - `ls`, `sed`, `awk`, `echo`, `printf`, `sort`, `uniq`, `wc` — too many
@@ -82,10 +83,12 @@ negatives):
 - Anything containing `# bash-guard: allow` (explicit escape hatch)
 - Any parse error or unexpected input
 
-**Why:** measured sessions show ~48k output tokens going to bash `grep`/`rg`,
-~23k to `cat`/`head`/`tail`, and ~41k to `ls`/`find` per day — most of which
-has a zero-cost dedicated-tool equivalent. Blocking with a clear hint is
-cheaper than relying on prompt discipline.
+**Why:** measured sessions show ~23k output tokens going to `cat`/`head`/`tail`
+and ~41k to `ls`/`find` per day — most of which has a zero-cost dedicated-tool
+equivalent. Content search (`grep`/`rg`/`egrep`/`fgrep`) is intentionally *not*
+blocked: the `Grep` tool is not always available, so bash content search is the
+reliable fallback and blocking it just creates dead ends. Blocking the rest with
+a clear hint is cheaper than relying on prompt discipline.
 
 ### `guard-write` (`PreToolUse` on `Write`/`Edit`/`NotebookEdit`)
 
